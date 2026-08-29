@@ -1,0 +1,43 @@
+name: Apply Codex patch
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/apply-codex-patch.yml
+      - .codex-patch/**
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+
+      - name: Reconstruct and apply patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .codex-patch/part-* > /tmp/codex.patch.gz.b64
+          base64 --decode /tmp/codex.patch.gz.b64 | gzip --decompress > /tmp/codex.patch
+          echo "38c7e0e236a0382c3fb31619b9a91757adba445e3939f19c6e0961c9b671d6b0  /tmp/codex.patch" | sha256sum --check
+          git apply --check /tmp/codex.patch
+          git apply /tmp/codex.patch
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .codex-patch .github/workflows/apply-codex-patch.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat: add Codex Fast and Ultra modes"
+          git push origin HEAD:codex-fast-ultra-pi-ui
