@@ -1,0 +1,57 @@
+name: Build stable Codex workspace
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/codex-rebuild-v2.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Generate and validate
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          cp scripts/rebuild-v2.sh /tmp/rebuild-v2.sh
+          chmod +x /tmp/rebuild-v2.sh
+          set +e
+          /tmp/rebuild-v2.sh 2>&1 | tee /tmp/rebuild-v2.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ $status -ne 0 ]]; then
+            cp /tmp/rebuild-v2.log .v2-failure.log
+            git add .v2-failure.log
+            git commit -m "chore: capture stable build diagnostics" || true
+            git push origin HEAD:codex-fast-ultra-pi-ui
+            exit $status
+          fi
+      - name: Open review
+        shell: bash
+        run: |
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head codex-fast-ultra-pi-ui --base main --json url --jq '.[0].url')"
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head codex-fast-ultra-pi-ui \
+              --title "Build a focused Codex workspace" \
+              --body $'## Summary\n\n- focused Codex runtime and cached local session history\n- real Fast and Ultra launch modes with native capability detection and stable fallbacks\n- responsive pi-web-inspired workspace UI\n- deferred search, rendering containment, history caching, and lazy Markdown chunk\n- registry-resolved current stable React, Vite, TypeScript, and tooling\n\n## Validation\n\n- formatting and source-focus guard\n- TypeScript\n- Node unit tests\n- production build\n- bundle budget\n- production server smoke test'
+          fi
