@@ -1,0 +1,34 @@
+name: Build Codex workspace
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/codex-rebuild.yml
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    if: github.event.head_commit.message == 'chore: run Codex workspace rebuild'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Configure repository write access
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+      - name: Build and validate workspace
+        run: |
+          cp scripts/rebuild-codex-workspace.sh /tmp/rebuild-codex-workspace.sh
+          chmod +x /tmp/rebuild-codex-workspace.sh
+          /tmp/rebuild-codex-workspace.sh
