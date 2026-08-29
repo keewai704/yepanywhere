@@ -1,0 +1,36 @@
+name: Portable dependency workspace
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/dependency-snapshot-fast.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - run: pnpm install --force
+      - name: Archive workspace dependencies
+        run: |
+          tar -cf dependency-workspace.tar \
+            node_modules \
+            packages/*/node_modules \
+            site/node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-${{ github.sha }}
+          path: dependency-workspace.tar
+          compression-level: 0
+          retention-days: 1
