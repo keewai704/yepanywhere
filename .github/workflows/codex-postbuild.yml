@@ -1,0 +1,111 @@
+name: Run final Codex checks
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/codex-postbuild.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Verify generated workspace
+        run: |
+          test -f src/App.tsx
+          test -f server/index.mjs
+          test -f pnpm-lock.yaml
+      - name: Apply final compatibility fixes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          path = Path('src/App.tsx')
+          text = path.read_text()
+          text = text.replace('const stream = useRef<EventSource>();', 'const stream = useRef<EventSource | undefined>(undefined);')
+          path.write_text(text)
+          PY
+          cat > .github/workflows/ci.yml <<'EOF'
+          name: Codex CI
+          on:
+            push:
+              branches: [main, codex-fast-ultra-pi-ui]
+            pull_request:
+          permissions:
+            contents: read
+          jobs:
+            validate:
+              runs-on: ubuntu-latest
+              timeout-minutes: 20
+              steps:
+                - uses: actions/checkout@v5
+                - uses: pnpm/action-setup@v4
+                  with:
+                    version: 10.34.5
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version-file: .node-version
+                    cache: pnpm
+                - run: pnpm install --frozen-lockfile
+                - run: pnpm format:check
+                - run: pnpm lint
+                - run: pnpm typecheck
+                - run: pnpm test
+                - run: pnpm build
+                - run: pnpm perf:check
+                - run: pnpm test:smoke
+          EOF
+          pnpm install --frozen-lockfile
+          pnpm exec biome check --write --unsafe .
+      - name: Run complete validation
+        run: |
+          pnpm format:check
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm perf:check
+          pnpm test:smoke
+      - name: Publish final validation commit
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm -f .v2-failure.log .validation-failure.log .rebuild-failure.log
+          rm -f .github/workflows/codex-postbuild.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Complete Codex workspace validation"
+            git push origin HEAD:codex-fast-ultra-pi-ui
+          fi
+      - name: Ensure pull request exists
+        shell: bash
+        run: |
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head codex-fast-ultra-pi-ui --base main --json url --jq '.[0].url')"
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head codex-fast-ultra-pi-ui \
+              --title "Build a focused Codex workspace" \
+              --body $'## Summary\n\n- focused Codex runtime and cached local session history\n- Fast and Ultra launch modes wired to native capability detection and stable configuration fallbacks\n- compact responsive workspace UI inspired by pi-web\n- deferred session search, rendering containment, history caching, lazy Markdown, and a bundle budget\n- current stable React, Vite, TypeScript, and tooling resolved from the registry\n\n## Validation\n\n- formatting and source-focus guard\n- TypeScript\n- Node unit tests\n- production build\n- bundle budget\n- production server smoke test'
+          fi
