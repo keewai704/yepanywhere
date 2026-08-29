@@ -64,9 +64,17 @@ import { useI18n } from "../i18n";
 import {
   getEffortLevelOptions,
   getThinkingModeOptions,
+  isEffortLevel,
   resolveSupportedEffortLevel,
   resolveSupportedThinkingMode,
 } from "../lib/effortLevels";
+import {
+  CODEX_FAST_SERVICE_TIER,
+  getCodexUltraEffort,
+  isCodexUltraEffort,
+  modelSupportsCodexFast,
+  normalizeCodexServiceTier,
+} from "../lib/codexModes";
 import {
   getPreferredProviderModelId,
   getProviderSessionDefaults,
@@ -201,6 +209,7 @@ import { shortenPath } from "../lib/text";
 import { getPermissionModeOptions } from "../lib/permissionModes";
 import type { PermissionMode, Project } from "../types";
 import { AttachmentChip } from "./AttachmentChip";
+import { CodexModeControls } from "./CodexModeControls";
 import { DeliveryGlyph } from "./DeliveryGlyph";
 import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import { FullPaneComposerToggle } from "./FullPaneComposerToggle";
@@ -373,6 +382,9 @@ export function NewSessionForm({
     null,
   );
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [selectedServiceTier, setSelectedServiceTier] = useState<
+    string | undefined
+  >(undefined);
   const [selectedThinkingMode, setSelectedThinkingMode] =
     useState<ThinkingMode>("off");
   const [selectedEffortLevel, setSelectedEffortLevel] =
@@ -1024,6 +1036,17 @@ export function NewSessionForm({
     selectedThinkingMode,
     thinkingModeOptions,
   );
+  const fastAvailable = modelSupportsCodexFast(selectedModelInfo);
+  const effectiveServiceTier = fastAvailable
+    ? normalizeCodexServiceTier(selectedServiceTier)
+    : undefined;
+  const ultraEffort = getCodexUltraEffort(effortOptions);
+  const ultraEnabled =
+    effectiveThinkingMode === "on" &&
+    isCodexUltraEffort(effectiveEffortLevel, effortOptions);
+  const ultraLevelLabel = ultraEffort
+    ? effortOptions.find((option) => option.value === ultraEffort)?.label
+    : undefined;
   const showThinkingControls =
     supportsThinkingToggle &&
     thinkingModeOptions.some((option) => option !== "off");
@@ -1037,7 +1060,7 @@ export function NewSessionForm({
   const getLegacyProviderDefaultSeed = useCallback(
     (providerName: ProviderName) => ({
       model:
-        providerName === "claude" ? resolveModel(getModelSetting()) : undefined,
+        providerName === "codex" ? resolveModel(getModelSetting()) : undefined,
       thinkingMode: legacyThinkingMode,
       effortLevel: legacyEffortLevel,
     }),
@@ -1376,6 +1399,9 @@ export function NewSessionForm({
             initialProviderDefaults.model,
           ),
       );
+      setSelectedServiceTier(
+        normalizeCodexServiceTier(initialProviderDefaults.serviceTier),
+      );
       const preferredThinkingSelection = preferredThinking
         ? parseThinkingOption(preferredThinking)
         : null;
@@ -1525,6 +1551,9 @@ export function NewSessionForm({
     } else {
       setSelectedModel(null);
     }
+    setSelectedServiceTier(
+      normalizeCodexServiceTier(providerDefaults.serviceTier),
+    );
     const preferredThinkingSelection = preferredThinking
       ? parseThinkingOption(preferredThinking)
       : null;
@@ -1868,6 +1897,7 @@ export function NewSessionForm({
           selectedProvider,
           {
             model: selectedModel ?? undefined,
+            serviceTier: effectiveServiceTier,
             thinkingMode: selectedThinkingMode,
             effortLevel: selectedEffortLevel,
             helperSideModel,
@@ -1879,6 +1909,7 @@ export function NewSessionForm({
       console.error("Failed to save new session defaults:", err);
     });
   }, [
+    effectiveServiceTier,
     getLegacyProviderDefaultSeed,
     helperSideModel,
     mode,
@@ -2104,6 +2135,7 @@ export function NewSessionForm({
         const sessionOptions = {
           mode: sessionMode,
           model: selectedModel ?? undefined,
+          serviceTier: effectiveServiceTier,
           thinking,
           showThinking,
           provider: selectedProvider ?? undefined,
@@ -2122,6 +2154,7 @@ export function NewSessionForm({
           detached: !resolvedProjectId,
           mode: sessionMode,
           model: selectedModel ?? null,
+          serviceTier: effectiveServiceTier ?? null,
           thinking,
           provider: selectedProvider ?? null,
           executor: effectiveExecutor,
@@ -2205,7 +2238,7 @@ export function NewSessionForm({
             undefined, // deferred
             clientTimestamp,
             undefined, // messageMetadata
-            undefined, // serviceTier
+            effectiveServiceTier,
             showThinking,
           );
           const queueResponseReceivedAtMs = Date.now();
@@ -3146,6 +3179,36 @@ export function NewSessionForm({
           </div>
         )}
       </div>
+      {selectedProvider === "codex" && (
+        <CodexModeControls
+          fastEnabled={effectiveServiceTier === CODEX_FAST_SERVICE_TIER}
+          ultraEnabled={ultraEnabled}
+          fastAvailable={fastAvailable}
+          ultraAvailable={ultraEffort !== null}
+          ultraLevelLabel={ultraLevelLabel}
+          disabled={isStarting || composerMuted}
+          compact={compact}
+          onFastChange={(enabled) => {
+            hasUserCustomizedDefaultsRef.current = true;
+            setSelectedServiceTier(
+              enabled ? CODEX_FAST_SERVICE_TIER : undefined,
+            );
+          }}
+          onUltraChange={(enabled) => {
+            hasUserCustomizedDefaultsRef.current = true;
+            if (enabled && ultraEffort) {
+              setSelectedEffortLevel(ultraEffort);
+              setSelectedThinkingMode("on");
+              return;
+            }
+            const modelDefault = selectedModelInfo?.defaultReasoningEffort;
+            setSelectedEffortLevel(
+              isEffortLevel(modelDefault) ? modelDefault : "high",
+            );
+            setSelectedThinkingMode("auto");
+          }}
+        />
+      )}
       <div className="new-session-form-toolbar">
         <div className="new-session-form-toolbar-left">
           {allowAttachments && (

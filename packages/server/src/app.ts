@@ -157,9 +157,6 @@ import { createSettingsRoutes } from "./routes/settings.js";
 import { createSharingRoutes } from "./routes/sharing.js";
 import { createSupervisorQueueRoutes } from "./routes/supervisor-queue.js";
 import { createToolResultMediaRoutes } from "./routes/tool-result-media.js";
-import { ClaudeGatewayProvider } from "./sdk/providers/claude-gateway.js";
-import { ClaudeOllamaProvider } from "./sdk/providers/claude-ollama.js";
-import { grokACPProvider } from "./sdk/providers/grok-acp.js";
 
 import { createLocalFileRoutes } from "./routes/local-file.js";
 import { createLocalImageRoutes } from "./routes/local-image.js";
@@ -500,49 +497,12 @@ export function createApp(options: AppOptions): AppResult {
   };
   configureProviderRuntime({
     codexCliPath: options.codexCliPath,
-    getClaudeAdditionalModels: () =>
-      options.serverSettingsService?.getSetting("claudeAdditionalModels"),
-    isClaudeOllamaVisible: () =>
-      ClaudeOllamaProvider.isExplicitlyConfigured() ||
-      Boolean(
-        options.serverSettingsService?.getSetting("ollamaSystemPrompt") ||
-          options.serverSettingsService?.getSetting(
-            "ollamaUseFullSystemPrompt",
-          ),
-      ) ||
-      Object.values(
-        options.sessionMetadataService?.getAllMetadata() ?? {},
-      ).some((metadata) => metadata.provider === "claude-ollama"),
     getProviderRuntimeSnapshot: () => ({
       codexCliPath: options.codexCliPath,
       codexReasoningSummary: options.serverSettingsService?.getSetting(
         "codexReasoningSummary",
       ),
-      claudeAdditionalModels: options.serverSettingsService?.getSetting(
-        "claudeAdditionalModels",
-      ),
-      claudeGatewayUrl:
-        options.serverSettingsService?.getSetting("claudeGatewayUrl"),
-      claudeGatewayStartCommand: options.serverSettingsService?.getSetting(
-        "claudeGatewayStartCommand",
-      ),
-      claudeGatewayDisableAgent: options.serverSettingsService?.getSetting(
-        "claudeGatewayDisableAgent",
-      ),
-      claudeGatewayDisablePlanMode: options.serverSettingsService?.getSetting(
-        "claudeGatewayDisablePlanMode",
-      ),
       subagentMaxDepth: getConfiguredSubagentMaxDepth(),
-      ollamaUrl: options.serverSettingsService?.getSetting("ollamaUrl"),
-      ollamaSystemPrompt:
-        options.serverSettingsService?.getSetting("ollamaSystemPrompt"),
-      ollamaUseFullSystemPrompt: options.serverSettingsService?.getSetting(
-        "ollamaUseFullSystemPrompt",
-      ),
-      ambientXaiApiKey: process.env.XAI_API_KEY,
-      grokBuildUseXaiApiKey: options.serverSettingsService?.getSetting(
-        "grokBuildUseXaiApiKey",
-      ),
     }),
   });
   const codexSessionsDir = options.codexSessionsDir ?? CODEX_SESSIONS_DIR;
@@ -2152,22 +2112,8 @@ export function createApp(options: AppOptions): AppResult {
           ? (enabled) =>
               options.remoteSessionService?.setDiskPersistenceEnabled(enabled)
           : undefined,
-        onClaudeGatewaySettingsChanged: (settings) =>
-          ClaudeGatewayProvider.configureGateway(settings),
-        onOllamaUrlChanged: (url) => {
-          ClaudeOllamaProvider.setOllamaUrl(url);
-        },
         onHeartbeatSettingsChanged: () => {
           supervisor.notifyHeartbeatScheduleChanged();
-        },
-        onOllamaSystemPromptChanged: (prompt) => {
-          ClaudeOllamaProvider.setSystemPrompt(prompt);
-        },
-        onOllamaUseFullSystemPromptChanged: (enabled) => {
-          ClaudeOllamaProvider.setUseFullSystemPrompt(enabled);
-        },
-        onGrokBuildUseXaiApiKeyChanged: (enabled) => {
-          grokACPProvider.setUseAmbientXaiApiKey(enabled);
         },
         getIdleReapHours: () =>
           idleReapMsToHours(supervisor.getIdleTimeoutMs()),

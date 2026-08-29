@@ -1250,5 +1250,18 @@
   "remoteSetupErrorUpdateFailed": "更新に失敗しました",
   "publicShareRetrying": "共有に再接続中...",
   "sourceWorkingTreeFilesIncomplete": "一覧は不完全です。合計 {count} ファイルです。",
-  "sourceWorkingTreeShowAll": "{count} 件すべて表示"
+  "sourceWorkingTreeShowAll": "{count} 件すべて表示",
+  "effortLevelUltraLabel": "Ultra",
+  "effortLevelUltraDescription": "タスクの自動委任を含む最大推論",
+  "codexModesLabel": "Codex応答モード",
+  "codexFastLabel": "Fast",
+  "codexFastHint": "応答速度 1.5倍",
+  "codexFastDescription": "CodexのFastサービス階層を使用して応答速度を高めます。",
+  "codexFastUnavailable": "このモデルではFastを利用できません。",
+  "codexUltraLabel": "Ultra",
+  "codexUltraHint": "最大推論",
+  "codexUltraHintLevel": "最大推論・{level}",
+  "codexUltraDescription": "このモデルが対応する最も高い推論レベルを使用します。",
+  "codexUltraUnavailable": "このモデルではUltra推論を利用できません。",
+  "sessionFastChangeFailed": "Fastモードを変更できませんでした: {message}"
 }

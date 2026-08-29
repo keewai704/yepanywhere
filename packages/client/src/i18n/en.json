@@ -2963,5 +2963,18 @@
   "desktopProviderNoticeGetClaude": "Get Claude",
   "desktopProviderNoticeGetCodex": "Get Codex",
   "desktopProviderNoticeRetry": "Check again",
-  "desktopProviderNoticeDismiss": "Dismiss provider setup notice"
+  "desktopProviderNoticeDismiss": "Dismiss provider setup notice",
+  "effortLevelUltraLabel": "Ultra",
+  "effortLevelUltraDescription": "Maximum reasoning with automatic task delegation",
+  "codexModesLabel": "Codex response modes",
+  "codexFastLabel": "Fast",
+  "codexFastHint": "1.5× response speed",
+  "codexFastDescription": "Use the Codex fast service tier for higher response speed.",
+  "codexFastUnavailable": "Fast mode is not available for this model.",
+  "codexUltraLabel": "Ultra",
+  "codexUltraHint": "Maximum reasoning",
+  "codexUltraHintLevel": "Maximum reasoning · {level}",
+  "codexUltraDescription": "Use the highest reasoning level supported by this model.",
+  "codexUltraUnavailable": "Ultra reasoning is not available for this model.",
+  "sessionFastChangeFailed": "Could not change Fast mode: {message}"
 }

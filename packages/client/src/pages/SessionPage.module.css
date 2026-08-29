@@ -47,3 +47,18 @@
     grid-template-columns: minmax(0, 1fr) 28px;
   }
 }
+
+.codexModesRow {
+  width: min(100%, 62rem);
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 auto 0.4rem;
+  padding-inline: 0.15rem;
+}
+
+@media (max-width: 640px) {
+  .codexModesRow {
+    justify-content: flex-start;
+    margin-bottom: 0.3rem;
+  }
+}

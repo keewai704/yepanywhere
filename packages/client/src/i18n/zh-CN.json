@@ -2311,5 +2311,18 @@
   "remoteSetupErrorCustomYaRequired": "请输入自定义 YA URL",
   "remoteSetupErrorSaveFailed": "保存失败",
   "remoteSetupErrorUpdateFailed": "更新失败",
-  "publicShareRetrying": "正在重新连接以分享..."
+  "publicShareRetrying": "正在重新连接以分享...",
+  "effortLevelUltraLabel": "Ultra",
+  "effortLevelUltraDescription": "包含自动任务委派的最高推理强度",
+  "codexModesLabel": "Codex 响应模式",
+  "codexFastLabel": "Fast",
+  "codexFastHint": "1.5 倍响应速度",
+  "codexFastDescription": "使用 Codex Fast 服务层提高响应速度。",
+  "codexFastUnavailable": "此模型不支持 Fast 模式。",
+  "codexUltraLabel": "Ultra",
+  "codexUltraHint": "最高推理强度",
+  "codexUltraHintLevel": "最高推理强度 · {level}",
+  "codexUltraDescription": "使用此模型支持的最高推理等级。",
+  "codexUltraUnavailable": "此模型不支持 Ultra 推理。",
+  "sessionFastChangeFailed": "无法更改 Fast 模式：{message}"
 }

@@ -52,7 +52,7 @@ const GPT55_FALLBACK_CODEX_MODEL: ModelInfo = {
   supportsPersonality: true,
   serviceTiers: [
     {
-      id: "priority",
+      id: "fast",
       name: "Fast",
       description: "1.5x speed, increased usage",
     },
@@ -91,7 +91,7 @@ const GPT54_FALLBACK_CODEX_MODEL: ModelInfo = {
   supportsPersonality: true,
   serviceTiers: [
     {
-      id: "priority",
+      id: "fast",
       name: "Fast",
       description: "1.5x speed, increased usage",
     },
@@ -175,7 +175,7 @@ const GPT56_ULTRA_REASONING_EFFORT = {
 
 const GPT56_SERVICE_TIERS: NonNullable<ModelInfo["serviceTiers"]> = [
   {
-    id: "priority",
+    id: "fast",
     name: "Fast",
     description: "1.5x speed, increased usage",
   },
@@ -447,7 +447,8 @@ function normalizeModelServiceTierMetadata(
   }
   const serviceTiers = model.serviceTiers
     .map((tier) => {
-      const id = typeof tier.id === "string" ? tier.id.trim() : "";
+      const rawId = typeof tier.id === "string" ? tier.id.trim() : "";
+      const id = rawId === "priority" ? "fast" : rawId;
       const name = typeof tier.name === "string" ? tier.name.trim() : "";
       if (!id || !name) return null;
       return {

@@ -464,12 +464,14 @@ export function createProcessesRoutes(deps: ProcessesDeps): Hono {
 
     const body = await c.req.json<{
       model?: string;
+      serviceTier?: string | null;
       thinking?: ThinkingOption;
       showThinking?: ShowThinking;
     }>();
     const updates: {
       model?: string;
       requestedModel?: string;
+      serviceTier?: string;
       thinking?: ReturnType<typeof thinkingOptionToConfig>["thinking"];
       effort?: ReturnType<typeof thinkingOptionToConfig>["effort"];
     } = {};
@@ -478,6 +480,11 @@ export function createProcessesRoutes(deps: ProcessesDeps): Hono {
       updates.model =
         body.model && body.model !== "default" ? body.model : undefined;
       updates.requestedModel = body.model;
+    }
+    if ("serviceTier" in body) {
+      const requestedTier = body.serviceTier?.trim();
+      updates.serviceTier =
+        requestedTier === "priority" ? "fast" : requestedTier || undefined;
     }
     if ("thinking" in body) {
       if (body.thinking === undefined) {
@@ -514,6 +521,7 @@ export function createProcessesRoutes(deps: ProcessesDeps): Hono {
       success: true,
       processId: updatedProcess.id,
       model: updatedProcess.resolvedModel ?? body.model,
+      serviceTier: updatedProcess.serviceTier,
       thinking: updatedProcess.thinking,
       effort: updatedProcess.effort,
     });

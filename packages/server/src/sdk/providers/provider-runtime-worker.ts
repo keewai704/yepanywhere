@@ -3,9 +3,6 @@ import type { PermissionMode } from "@yep-anywhere/shared";
 import { prepareSessionSandbox } from "../../session-sandbox.js";
 import { getModuleEnv } from "../../yaModuleEnv.js";
 import { pickBrowserDebugAgentEnvironment } from "./agentctl-session-env.js";
-import { ClaudeGatewayProvider } from "./claude-gateway.js";
-import { ClaudeOllamaProvider } from "./claude-ollama.js";
-import { grokACPProvider } from "./grok-acp.js";
 import {
   configureProviderRuntime,
   getRawProvider,
@@ -42,35 +39,8 @@ async function configureRuntime(
 ): Promise<void> {
   configureProviderRuntime({
     codexCliPath: config.codexCliPath,
-    getClaudeAdditionalModels: () => config.claudeAdditionalModels ?? [],
-    isClaudeOllamaVisible: () => true,
     getProviderRuntimeSnapshot: () => config,
   });
-  ClaudeGatewayProvider.setGatewayUrl(config.claudeGatewayUrl);
-  ClaudeGatewayProvider.setGatewayStartCommand(
-    config.claudeGatewayStartCommand,
-  );
-  ClaudeGatewayProvider.setGatewayDisableAgent(
-    config.claudeGatewayDisableAgent ?? true,
-  );
-  ClaudeGatewayProvider.setGatewayDisablePlanMode(
-    config.claudeGatewayDisablePlanMode ?? true,
-  );
-  ClaudeOllamaProvider.setOllamaUrl(config.ollamaUrl);
-  ClaudeOllamaProvider.setSystemPrompt(config.ollamaSystemPrompt);
-  ClaudeOllamaProvider.setUseFullSystemPrompt(
-    config.ollamaUseFullSystemPrompt ?? false,
-  );
-  grokACPProvider.setAmbientXaiApiKey(config.ambientXaiApiKey);
-  grokACPProvider.setUseAmbientXaiApiKey(config.grokBuildUseXaiApiKey ?? false);
-  if (config.claudeGatewayUrl) {
-    await ClaudeGatewayProvider.configureGateway({
-      url: config.claudeGatewayUrl,
-      startCommand: config.claudeGatewayStartCommand,
-      disableAgent: config.claudeGatewayDisableAgent ?? true,
-      disablePlanMode: config.claudeGatewayDisablePlanMode ?? true,
-    });
-  }
 }
 
 async function main(): Promise<void> {
@@ -145,31 +115,10 @@ async function main(): Promise<void> {
       const provider = getRawProvider(request.providerName);
       if (!provider)
         throw new Error(`Unknown provider ${request.providerName}`);
-      if (request.providerName === "claude-gateway") {
-        await provider.getAvailableModels();
-        const gatewayProcessGroupId =
-          ClaudeGatewayProvider.getOwnedGatewayProcessGroupId();
-        if (gatewayProcessGroupId) {
-          if (typeof process.send === "function" && process.connected) {
-            process.send({
-              type: "retainedProcessGroup",
-              processGroupId: gatewayProcessGroupId,
-            });
-          }
-          ClaudeGatewayProvider.relinquishOwnedGatewayProcessGroup(
-            gatewayProcessGroupId,
-          );
-        }
-      }
-
       const sandboxOptions = providerOptions.sessionSandboxOptions;
       if (
         sandboxOptions &&
-        sandboxOptions.provider !== request.providerName &&
-        !(
-          sandboxOptions.provider === "gemini" &&
-          request.providerName === "gemini-acp"
-        )
+        sandboxOptions.provider !== request.providerName
       ) {
         throw new Error(
           "Provider worker sandbox request has the wrong provider",

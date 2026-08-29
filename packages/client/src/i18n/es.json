@@ -1250,5 +1250,18 @@
   "remoteSetupErrorUpdateFailed": "Error al actualizar",
   "publicShareRetrying": "Reconectando al recurso compartido...",
   "sourceWorkingTreeFilesIncomplete": "El inventario está incompleto; hay {count} archivos en total.",
-  "sourceWorkingTreeShowAll": "Mostrar los {count} archivos"
+  "sourceWorkingTreeShowAll": "Mostrar los {count} archivos",
+  "effortLevelUltraLabel": "Ultra",
+  "effortLevelUltraDescription": "Razonamiento máximo con delegación automática de tareas",
+  "codexModesLabel": "Modos de respuesta de Codex",
+  "codexFastLabel": "Fast",
+  "codexFastHint": "Respuesta 1,5 veces más rápida",
+  "codexFastDescription": "Usa el nivel de servicio Fast de Codex para aumentar la velocidad.",
+  "codexFastUnavailable": "Fast no está disponible para este modelo.",
+  "codexUltraLabel": "Ultra",
+  "codexUltraHint": "Razonamiento máximo",
+  "codexUltraHintLevel": "Razonamiento máximo · {level}",
+  "codexUltraDescription": "Usa el nivel de razonamiento más alto compatible con este modelo.",
+  "codexUltraUnavailable": "El razonamiento Ultra no está disponible para este modelo.",
+  "sessionFastChangeFailed": "No se pudo cambiar el modo Fast: {message}"
 }
