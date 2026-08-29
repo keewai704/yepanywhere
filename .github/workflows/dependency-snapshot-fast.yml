@@ -24,13 +24,12 @@ jobs:
       - run: pnpm install --force
       - name: Archive workspace dependencies
         run: |
-          tar -cf dependency-workspace.tar \
+          tar -I 'zstd -T0 -3' -cf dependency-workspace.tar.zst \
             node_modules \
-            packages/*/node_modules \
-            site/node_modules
+            packages/*/node_modules
       - uses: actions/upload-artifact@v4
         with:
           name: dependency-workspace-${{ github.sha }}
-          path: dependency-workspace.tar
+          path: dependency-workspace.tar.zst
           compression-level: 0
           retention-days: 1
