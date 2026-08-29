@@ -1,0 +1,69 @@
+name: Finalize stable Codex workspace
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/codex-rebuild-v2-fix.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: codex-workspace-rebuild
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Generate and validate stable workspace
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          cp scripts/rebuild-v2.sh /tmp/rebuild-v2.sh
+          python <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/rebuild-v2.sh')
+          text = path.read_text()
+          text = text.replace('const stream = useRef<EventSource>();', 'const stream = useRef<EventSource | undefined>(undefined);')
+          text = text.replace('git push origin HEAD:codex-fast-ultra-pi-ui', 'git push --force-with-lease origin HEAD:codex-fast-ultra-pi-ui')
+          path.write_text(text)
+          PY
+          chmod +x /tmp/rebuild-v2.sh
+          set +e
+          /tmp/rebuild-v2.sh 2>&1 | tee /tmp/rebuild-v2-fix.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ $status -ne 0 ]]; then
+            cp /tmp/rebuild-v2-fix.log .v2-failure.log
+            git add .v2-failure.log
+            git commit -m "chore: refresh stable build diagnostics" || true
+            git push origin HEAD:codex-fast-ultra-pi-ui || true
+            exit $status
+          fi
+      - name: Open pull request
+        shell: bash
+        run: |
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head codex-fast-ultra-pi-ui --base main --json url --jq '.[0].url')"
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head codex-fast-ultra-pi-ui \
+              --title "Build a focused Codex workspace" \
+              --body $'## Summary\n\n- focused Codex runtime and cached local session history\n- Fast and Ultra launch modes wired to native capability detection and stable configuration fallbacks\n- compact responsive workspace UI inspired by pi-web\n- deferred session search, rendering containment, history caching, lazy Markdown, and a bundle budget\n- current stable React, Vite, TypeScript, and tooling resolved from the registry\n\n## Validation\n\n- formatting and source-focus guard\n- TypeScript\n- Node unit tests\n- production build\n- bundle budget\n- production server smoke test'
+          fi

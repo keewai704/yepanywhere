@@ -65,7 +65,7 @@ export function isClaudeProviderName(
  * The default provider when none is specified.
  * Used for backward compatibility with existing sessions that don't have provider set.
  */
-export const DEFAULT_PROVIDER: ProviderName = "claude";
+export const DEFAULT_PROVIDER: ProviderName = "codex";
 
 export const CODEX_REASONING_SUMMARIES = [
   "auto",
@@ -755,7 +755,13 @@ export function resolveModel(
 /**
  * Effort level for provider response quality/reasoning depth.
  */
-export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max";
+export type EffortLevel =
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max"
+  | "ultra";
 
 /**
  * Thinking mode for the 3-way toggle.
@@ -770,7 +776,7 @@ export type ThinkingMode = "off" | "auto" | "on";
  * Wire format (backward compatible):
  * - "off": Thinking disabled
  * - "auto": Adaptive thinking, no effort override
- * - "on:low" | "on:medium" | "on:high" | "on:xhigh" | "on:max": Forced-on thinking at effort level
+ * - "on:low" through "on:ultra": Forced-on thinking at the selected effort level
  * - EffortLevel (plain): Adaptive thinking with effort (backward compat with old clients)
  */
 export type ThinkingOption = "off" | "auto" | `on:${EffortLevel}` | EffortLevel;

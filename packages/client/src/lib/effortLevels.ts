@@ -19,12 +19,14 @@ export type EffortLevelMessageKey =
   | "effortLevelExtraLabel"
   | "effortLevelExtraHighLabel"
   | "effortLevelMaxLabel"
+  | "effortLevelUltraLabel"
   | "effortLevelLowDescription"
   | "effortLevelMediumDescription"
   | "effortLevelHighDescription"
   | "effortLevelExtraDescription"
   | "effortLevelExtraHighDescription"
-  | "effortLevelMaxDescription";
+  | "effortLevelMaxDescription"
+  | "effortLevelUltraDescription";
 
 export type EffortLevelTranslate = (key: EffortLevelMessageKey) => string;
 
@@ -34,6 +36,7 @@ export const EFFORT_LEVEL_ORDER: EffortLevel[] = [
   "high",
   "xhigh",
   "max",
+  "ultra",
 ];
 
 const GENERIC_EFFORT_LEVELS: EffortLevel[] = ["low", "medium", "high", "max"];
@@ -49,12 +52,14 @@ const DEFAULT_EFFORT_LEVEL_MESSAGES: Record<EffortLevelMessageKey, string> = {
   effortLevelExtraLabel: "Extra",
   effortLevelExtraHighLabel: "Extra High",
   effortLevelMaxLabel: "Max",
+  effortLevelUltraLabel: "Ultra",
   effortLevelLowDescription: "Fastest responses",
   effortLevelMediumDescription: "Moderate reasoning",
   effortLevelHighDescription: "Deep reasoning",
   effortLevelExtraDescription: "For your hardest tasks",
   effortLevelExtraHighDescription: "Extra-high reasoning",
   effortLevelMaxDescription: "Maximum effort",
+  effortLevelUltraDescription: "Maximum reasoning with task delegation",
 };
 
 const defaultTranslateEffortLevel: EffortLevelTranslate = (key) =>
@@ -108,17 +113,9 @@ function getModelSupportedEfforts(model?: ModelInfo): EffortLevel[] | null {
 }
 
 function getFallbackEffortLevels(providerName?: ProviderName): EffortLevel[] {
-  switch (providerName) {
-    case "claude":
-    case "claude-ollama":
-      return EFFORT_LEVEL_ORDER;
-    case "claude-gateway":
-      return [];
-    case "codex":
-      return CODEX_EFFORT_LEVELS;
-    default:
-      return GENERIC_EFFORT_LEVELS;
-  }
+  return providerName === "codex"
+    ? CODEX_EFFORT_LEVELS
+    : GENERIC_EFFORT_LEVELS;
 }
 
 export function getEffortLevelLabel(
@@ -126,7 +123,7 @@ export function getEffortLevelLabel(
   provider?: ProviderInfo | ProviderName | null,
   translate: EffortLevelTranslate = defaultTranslateEffortLevel,
 ): string {
-  const providerName = getProviderName(provider);
+  void provider;
   switch (level) {
     case "low":
       return translate("effortLevelLowLabel");
@@ -135,13 +132,11 @@ export function getEffortLevelLabel(
     case "high":
       return translate("effortLevelHighLabel");
     case "xhigh":
-      return providerName === "claude" ||
-        providerName === "claude-gateway" ||
-        providerName === "claude-ollama"
-        ? translate("effortLevelExtraLabel")
-        : translate("effortLevelExtraHighLabel");
+      return translate("effortLevelExtraHighLabel");
     case "max":
       return translate("effortLevelMaxLabel");
+    case "ultra":
+      return translate("effortLevelUltraLabel");
   }
 }
 
@@ -150,7 +145,7 @@ function getFallbackDescription(
   provider?: ProviderInfo | ProviderName | null,
   translate: EffortLevelTranslate = defaultTranslateEffortLevel,
 ): string {
-  const providerName = getProviderName(provider);
+  void provider;
   switch (level) {
     case "low":
       return translate("effortLevelLowDescription");
@@ -159,13 +154,11 @@ function getFallbackDescription(
     case "high":
       return translate("effortLevelHighDescription");
     case "xhigh":
-      return providerName === "claude" ||
-        providerName === "claude-gateway" ||
-        providerName === "claude-ollama"
-        ? translate("effortLevelExtraDescription")
-        : translate("effortLevelExtraHighDescription");
+      return translate("effortLevelExtraHighDescription");
     case "max":
       return translate("effortLevelMaxDescription");
+    case "ultra":
+      return translate("effortLevelUltraDescription");
   }
 }
 
@@ -220,12 +213,6 @@ export function getThinkingModeOptions(params: {
   effortOptions?: readonly EffortLevelOption[];
 }): ThinkingMode[] {
   const model = getModelInfo(params.provider, params.model);
-  if (
-    getProviderName(params.provider) === "claude-gateway" &&
-    model === undefined
-  ) {
-    return ["off"];
-  }
   if (model?.supportsAdaptiveThinking === false) {
     return ["off"];
   }

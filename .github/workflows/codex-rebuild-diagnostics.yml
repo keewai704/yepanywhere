@@ -1,0 +1,46 @@
+name: Verify Codex workspace build
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/codex-rebuild-diagnostics.yml
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build and validate workspace
+        shell: bash
+        run: |
+          if [[ ! -f scripts/rebuild-codex-workspace.sh ]]; then
+            echo "Workspace is already generated."
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          cp scripts/rebuild-codex-workspace.sh /tmp/rebuild-codex-workspace.sh
+          chmod +x /tmp/rebuild-codex-workspace.sh
+          set +e
+          /tmp/rebuild-codex-workspace.sh 2>&1 | tee /tmp/rebuild.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ $status -ne 0 ]]; then
+            cp /tmp/rebuild.log .rebuild-failure.log
+            git add .rebuild-failure.log
+            git commit -m "chore: capture workspace build diagnostics" || true
+            git push origin HEAD:codex-fast-ultra-pi-ui
+            exit $status
+          fi

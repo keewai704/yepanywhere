@@ -1347,6 +1347,7 @@ export const api = {
     processId: string,
     config: {
       model?: string;
+      serviceTier?: string | null;
       thinking?: ThinkingOption;
       showThinking?: ShowThinking;
     },
@@ -1355,6 +1356,7 @@ export const api = {
       success: boolean;
       processId: string;
       model?: string;
+      serviceTier?: string;
       thinking?: { type: string };
       effort?: string;
     }>(`/processes/${processId}/config`, {
@@ -1413,6 +1415,7 @@ export const api = {
         model?: string;
         /** YA model id (launch alias) for keying per-model settings. */
         requestedModel?: string;
+        serviceTier?: string;
         liveness?: SessionLivenessSnapshot;
         providerRuntimeStatus?: ProviderRuntimeStatus;
         recapMode?: RecapMode;

@@ -21,7 +21,6 @@ import {
   SYNTHETIC_DONE_COMMAND_CAPABILITY,
   SYNTHETIC_TERMINATE_COMMAND_CAPABILITY,
   getCanonicalInvocationToken,
-  isClaudeProviderName,
   serverHasCapability,
   startsWithSlashCommand,
   thinkingOptionToConfig,
@@ -47,6 +46,7 @@ import { serverSupportsBangCommands } from "../lib/bangCommandAvailability";
 import { BtwAsidePane } from "../components/BtwAsidePane";
 import { BtwAsideStickyCards } from "../components/BtwAsideStickyCards";
 import { ClientLogRecordingBadge } from "../components/ClientLogRecordingBadge";
+import { CodexModeControls } from "../components/CodexModeControls";
 import { ExternalSessionWarning } from "../components/ExternalSessionWarning";
 import { useStartNewSessionWithPrefillAction } from "../components/FileResourceActions";
 import { HostIdentityMarker } from "../components/HostIdentityMarker";
@@ -150,12 +150,19 @@ import {
 } from "../lib/composerDraftSignal";
 import { buildCorrectionText } from "../lib/correctionText";
 import { logSessionUiTrace } from "../lib/diagnostics/uiTrace";
-import { isEffortLevel } from "../lib/effortLevels";
+import { getEffortLevelOptions, isEffortLevel } from "../lib/effortLevels";
 import {
   liveThinkingSelectionFromProcess,
   thinkingOptionFromProcess,
   thinkingOptionFromSelection,
 } from "../lib/liveThinkingConfig";
+import {
+  CODEX_FAST_SERVICE_TIER,
+  getCodexUltraEffort,
+  isCodexUltraEffort,
+  modelSupportsCodexFast,
+  normalizeCodexServiceTier,
+} from "../lib/codexModes";
 import { getPersistentEditApprovalResponse } from "../lib/permissionModes";
 import { getCachedWebTranscriptProjection } from "../lib/webTranscriptProjection";
 import { createPendingElsewhereDismissKey } from "../lib/sessionUiStorageKeys";
@@ -266,8 +273,6 @@ function MessageInput(props: ComponentProps<typeof LazyMessageInput>) {
   );
 }
 
-const CLAUDE_HANDOFF_REQUIRED_MESSAGE =
-  "Claude session cannot be safely resumed because the Claude SDK recorded an API-error response as the latest assistant message. Start a handoff session instead.";
 const EMPTY_PROJECT_QUEUE_PROJECT_IDS: readonly string[] = [];
 const EMPTY_PROJECT_QUEUE_ITEMS: readonly ProjectQueueItemSummary[] = [];
 
@@ -276,6 +281,7 @@ interface LiveModelConfig {
   /** YA model id (launch alias) for keying per-model settings, distinct from
    * the reported `model` above. See topics/provider-abstraction.md. */
   requestedModel?: string;
+  serviceTier?: string;
   thinking?: { type: string };
   effort?: string;
   promptSuggestionMode?: PromptSuggestionMode;
@@ -296,23 +302,6 @@ function isMissingDeferredQueueEntryError(error: unknown): boolean {
   );
 }
 
-function requiresHandoffAfterClaudeResumeError(
-  error: unknown,
-  provider: ProviderName | undefined,
-): boolean {
-  if ((error as { status?: number } | null)?.status !== 409) {
-    return false;
-  }
-  if (!isClaudeProviderName(provider)) {
-    return false;
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes("Start a handoff session") ||
-    message.includes("API error: 409")
-  );
-}
-
 function parsePositiveIntegerParam(value: string | null): number | undefined {
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
@@ -327,6 +316,7 @@ function isSameLiveModelConfig(
     current !== null &&
     current.model === next.model &&
     current.requestedModel === next.requestedModel &&
+    current.serviceTier === next.serviceTier &&
     current.thinking?.type === next.thinking?.type &&
     current.effort === next.effort &&
     current.promptSuggestionMode === next.promptSuggestionMode
@@ -1086,6 +1076,28 @@ function SessionPageContent({
     [effectiveProvider, providers],
   );
   const currentProviderInfo = providerCapabilities.providerInfo;
+  const liveModelInfo = useMemo(() => {
+    const modelId =
+      liveModelConfig?.requestedModel ?? liveModelConfig?.model ?? effectiveModel;
+    return currentProviderInfo?.models?.find((model) => model.id === modelId);
+  }, [currentProviderInfo, effectiveModel, liveModelConfig]);
+  const liveEffortOptions = useMemo(
+    () =>
+      getEffortLevelOptions({
+        provider: currentProviderInfo,
+        model: liveModelInfo,
+        translate: t,
+      }),
+    [currentProviderInfo, liveModelInfo, t],
+  );
+  const liveUltraEffort = getCodexUltraEffort(liveEffortOptions);
+  const liveUltraLevelLabel = liveUltraEffort
+    ? liveEffortOptions.find((option) => option.value === liveUltraEffort)?.label
+    : undefined;
+  const liveFastAvailable = modelSupportsCodexFast(liveModelInfo);
+  const liveFastEnabled =
+    normalizeCodexServiceTier(liveModelConfig?.serviceTier) ===
+    CODEX_FAST_SERVICE_TIER;
   // Default to true for backwards compatibility (except slash commands)
   const supportsPermissionMode =
     currentProviderInfo?.supportsPermissionMode ?? true;
@@ -1580,6 +1592,7 @@ function SessionPageContent({
             ? {
                 model: process.model,
                 requestedModel: process.requestedModel,
+                serviceTier: normalizeCodexServiceTier(process.serviceTier),
                 thinking: process.thinking,
                 effort: process.effort,
                 promptSuggestionMode: process.promptSuggestionMode,
@@ -2348,7 +2361,7 @@ function SessionPageContent({
           undefined, // deferred
           clientTimestamp,
           metadata,
-          undefined, // serviceTier
+          liveModelConfig?.serviceTier, // serviceTier
           showThinking,
         );
         const responseReceivedAtMs = Date.now();
@@ -2487,19 +2500,7 @@ function SessionPageContent({
       setProcessState("idle");
       const errorMsg =
         finalError instanceof Error ? finalError.message : String(finalError);
-      if (
-        requiresHandoffAfterClaudeResumeError(finalError, effectiveProvider)
-      ) {
-        setShowHandoffModal(true);
-        showToast(
-          errorMsg.includes("API error: 409")
-            ? CLAUDE_HANDOFF_REQUIRED_MESSAGE
-            : errorMsg,
-          "error",
-        );
-      } else {
-        showToast(t("sessionSendFailed", { message: errorMsg }), "error");
-      }
+      showToast(t("sessionSendFailed", { message: errorMsg }), "error");
       return false;
     }
   };
@@ -2788,7 +2789,7 @@ function SessionPageContent({
         true, // deferred
         clientTimestamp,
         metadata,
-        undefined, // serviceTier
+        liveModelConfig?.serviceTier, // serviceTier
         showThinking,
       );
       const responseReceivedAtMs = Date.now();
@@ -2902,19 +2903,7 @@ function SessionPageContent({
       setComposerAttachments(currentAttachments, { persistDraft: false });
       const errorMsg =
         finalError instanceof Error ? finalError.message : String(finalError);
-      if (
-        requiresHandoffAfterClaudeResumeError(finalError, effectiveProvider)
-      ) {
-        setShowHandoffModal(true);
-        showToast(
-          errorMsg.includes("API error: 409")
-            ? CLAUDE_HANDOFF_REQUIRED_MESSAGE
-            : errorMsg,
-          "error",
-        );
-      } else {
-        showToast(t("sessionQueueFailed", { message: errorMsg }), "error");
-      }
+      showToast(t("sessionQueueFailed", { message: errorMsg }), "error");
     }
   };
 
@@ -3417,6 +3406,7 @@ function SessionPageContent({
         setLiveModelConfig((prev) => ({
           model: next.model ?? prev?.model,
           requestedModel: next.model ?? prev?.requestedModel,
+          serviceTier: prev?.serviceTier,
           thinking: next.thinking,
           effort: next.effort,
           promptSuggestionMode: prev?.promptSuggestionMode,
@@ -3463,6 +3453,7 @@ function SessionPageContent({
         setLiveModelConfig((prev) => ({
           model: result.model ?? prev?.model,
           requestedModel: result.model ?? prev?.requestedModel,
+          serviceTier: result.serviceTier ?? prev?.serviceTier,
           thinking: result.thinking,
           effort: result.effort,
           promptSuggestionMode: prev?.promptSuggestionMode,
@@ -3494,6 +3485,47 @@ function SessionPageContent({
     ],
   );
 
+  const handleLiveFastChange = useCallback(
+    async (enabled: boolean) => {
+      if (status.owner !== "self" || !currentOwnedProcessId) {
+        return;
+      }
+      try {
+        const result = await api.setProcessConfig(currentOwnedProcessId, {
+          serviceTier: enabled ? CODEX_FAST_SERVICE_TIER : null,
+        });
+        setLiveModelConfig((prev) => ({
+          model: result.model ?? prev?.model,
+          requestedModel: result.model ?? prev?.requestedModel,
+          serviceTier: normalizeCodexServiceTier(result.serviceTier),
+          thinking: result.thinking ?? prev?.thinking,
+          effort: result.effort ?? prev?.effort,
+          promptSuggestionMode: prev?.promptSuggestionMode,
+        }));
+        if (result.processId !== currentOwnedProcessId) {
+          setStatus((prev) =>
+            prev.owner === "self"
+              ? { ...prev, processId: result.processId }
+              : { owner: "self", processId: result.processId },
+          );
+          reconnectStream();
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error("Failed to change Fast mode:", err);
+        showToast(t("sessionFastChangeFailed", { message: errorMsg }), "error");
+      }
+    },
+    [
+      currentOwnedProcessId,
+      reconnectStream,
+      setStatus,
+      showToast,
+      status.owner,
+      t,
+    ],
+  );
+
   const handleSetLiveThinkingMode = useCallback(
     (mode: ThinkingMode) => {
       void handleLiveThinkingChange(
@@ -3511,12 +3543,26 @@ function SessionPageContent({
     [handleLiveThinkingChange],
   );
 
+  const handleLiveUltraChange = useCallback(
+    (enabled: boolean) => {
+      if (enabled && liveUltraEffort) {
+        void handleLiveThinkingChange("on", liveUltraEffort);
+        return;
+      }
+      const modelDefault = liveModelInfo?.defaultReasoningEffort;
+      void handleLiveThinkingChange(
+        "auto",
+        isEffortLevel(modelDefault) ? modelDefault : "high",
+      );
+    },
+    [handleLiveThinkingChange, liveModelInfo, liveUltraEffort],
+  );
+
   const handleCompactSession = useCallback(
     async (argument = "") => {
       if (status.owner !== "self" || !supportsManualCompact) return;
       // Trailing focus instructions ("/compact preserve X") ride along
-      // verbatim; Claude honors them natively. Providers without an instruction
-      // surface (e.g. Codex) ignore the argument server-side.
+      // verbatim when the provider exposes a native instruction surface.
       const trimmed = argument.trim();
       const message = trimmed ? `/compact ${trimmed}` : "/compact";
       try {
@@ -5562,6 +5608,27 @@ function SessionPageContent({
           />
           <div data-selection-actions-mobile-slot />
           <div className="session-input-inner">
+            {effectiveProvider === "codex" && !mainComposerForAside && (
+              <div className={styles.codexModesRow}>
+                <CodexModeControls
+                  fastEnabled={liveFastEnabled}
+                  ultraEnabled={
+                    liveThinkingSelection?.mode === "on" &&
+                    isCodexUltraEffort(
+                      liveThinkingSelection.effortLevel,
+                      liveEffortOptions,
+                    )
+                  }
+                  fastAvailable={liveFastAvailable}
+                  ultraAvailable={liveUltraEffort !== null}
+                  ultraLevelLabel={liveUltraLevelLabel}
+                  disabled={status.owner !== "self" || !currentOwnedProcessId}
+                  compact
+                  onFastChange={(enabled) => void handleLiveFastChange(enabled)}
+                  onUltraChange={handleLiveUltraChange}
+                />
+              </div>
+            )}
             <BtwAsideStickyCards
               asides={composerStickyBtwAsides}
               focusedAsideId={focusedBtwAsideId}

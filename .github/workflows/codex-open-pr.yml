@@ -1,0 +1,62 @@
+name: Prepare Codex workspace review
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/codex-open-pr.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: codex-fast-ultra-pi-ui
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Validate review commit
+        run: |
+          test -f apps/web/package.json
+          test -f apps/server/package.json
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm format:check
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm perf:check
+          pnpm test:smoke
+      - name: Open pull request
+        run: |
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head codex-fast-ultra-pi-ui --base main --json url --jq '.[0].url')"
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head codex-fast-ultra-pi-ui \
+              --title "Build a focused Codex workspace" \
+              --body $'## Summary\n\n- focused Codex-only runtime and session history\n- real Fast and Ultra launch configuration with capability detection\n- responsive pi-web-inspired interface\n- virtualized transcript, cached history parsing, and lazy feature chunks\n- current stable framework and tooling lockfile\n\n## Validation\n\n- format check\n- source focus guard\n- TypeScript\n- unit tests\n- production build\n- bundle budget\n- production server smoke test'
+          fi
+      - name: Remove review bootstrap workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm -f .github/workflows/codex-open-pr.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: complete Codex workspace review setup"
+            git push origin HEAD:codex-fast-ultra-pi-ui
+          fi

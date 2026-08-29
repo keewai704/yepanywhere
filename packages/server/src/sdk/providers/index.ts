@@ -1,23 +1,16 @@
-/**
- * Provider exports.
- *
- * Re-exports all provider implementations and types.
- */
-
 import {
   DEFAULT_CODEX_REASONING_SUMMARY,
   DEFAULT_SUBAGENT_MAX_DEPTH,
-  type ClaudeAdditionalModelSelection,
   type CodexReasoningSummary,
   type SubagentMaxDepth,
 } from "@yep-anywhere/shared";
 import {
   isProviderRuntimeHostAvailable,
-  retainProviderRuntimeProcessGroup,
   startHostedProviderSession,
 } from "./provider-runtime-host.js";
-// Types
+import { codexProvider } from "./codex.js";
 import type { AgentProvider, ProviderName } from "./types.js";
+
 export type {
   AgentProvider,
   AgentSession,
@@ -25,136 +18,40 @@ export type {
   ProviderName,
   StartSessionOptions,
 } from "./types.js";
-
-// Claude provider (uses @anthropic-ai/claude-agent-sdk)
-import { claudeProvider } from "./claude.js";
-export { ClaudeProvider, claudeProvider } from "./claude.js";
-
-// Claude Gateway provider (Claude SDK with a per-launch gateway overlay)
-import {
-  ClaudeGatewayProvider,
-  claudeGatewayProvider,
-} from "./claude-gateway.js";
-export {
-  ClaudeGatewayProvider,
-  claudeGatewayProvider,
-} from "./claude-gateway.js";
-
-// Codex provider (uses codex CLI)
-import { codexProvider } from "./codex.js";
 export {
   CodexProvider,
   codexProvider,
   type CodexProviderConfig,
 } from "./codex.js";
 
-// Gemini provider (uses gemini CLI)
-import { geminiProvider } from "./gemini.js";
-export {
-  GeminiProvider,
-  geminiProvider,
-  type GeminiProviderConfig,
-} from "./gemini.js";
-
-// Gemini ACP provider (uses gemini CLI with --experimental-acp)
-import { geminiACPProvider } from "./gemini-acp.js";
-export {
-  GeminiACPProvider,
-  geminiACPProvider,
-  type GeminiACPProviderConfig,
-} from "./gemini-acp.js";
-
-// Grok Build ACP provider (uses `grok agent stdio`)
-// Phase 1 isolated addition per topics/grok.md. Gated by ENABLED_PROVIDERS=grok.
-import { grokACPProvider } from "./grok-acp.js";
-export {
-  GrokACPProvider,
-  grokACPProvider,
-  type GrokACPProviderConfig,
-} from "./grok-acp.js";
-
-// CodexOSS provider (uses codex CLI with --oss for local models)
-import { codexOSSProvider } from "./codex-oss.js";
-export {
-  CodexOSSProvider,
-  codexOSSProvider,
-  type CodexOSSProviderConfig,
-} from "./codex-oss.js";
-
-// Claude + Ollama provider (uses Claude SDK with Ollama backend)
-import { claudeOllamaProvider } from "./claude-ollama.js";
-export {
-  ClaudeOllamaProvider,
-  claudeOllamaProvider,
-} from "./claude-ollama.js";
-
-// OpenCode provider (uses opencode serve for multi-provider agent)
-import { opencodeProvider } from "./opencode.js";
-export {
-  OpenCodeProvider,
-  opencodeProvider,
-  type OpenCodeProviderConfig,
-} from "./opencode.js";
-
-// pi provider (uses `pi --mode rpc`; see topics/pi-provider.md, Plan A)
-import { piProvider } from "./pi.js";
-export { PiProvider, piProvider, type PiProviderConfig } from "./pi.js";
-
 export interface ProviderRuntimeConfig {
-  /** Explicit Codex CLI path supplied by an embedding runtime such as desktop. */
   codexCliPath?: string;
-  /** Current server-persisted opt-ins for the Claude model catalog. */
-  getClaudeAdditionalModels?: () =>
-    | readonly ClaudeAdditionalModelSelection[]
-    | undefined;
-  /** Whether legacy ClaudeOllama has configured or persisted usage. */
-  isClaudeOllamaVisible?: () => boolean;
-  /** Cloneable process-scoped settings supplied to a provider worker. */
   getProviderRuntimeSnapshot?: () => ProviderRuntimeSnapshot;
 }
 
 export interface ProviderRuntimeSnapshot {
   codexCliPath?: string;
   codexReasoningSummary?: CodexReasoningSummary;
-  claudeAdditionalModels?: readonly ClaudeAdditionalModelSelection[];
-  claudeGatewayUrl?: string;
-  claudeGatewayStartCommand?: string;
-  claudeGatewayDisableAgent?: boolean;
-  claudeGatewayDisablePlanMode?: boolean;
   subagentMaxDepth?: SubagentMaxDepth;
-  ollamaUrl?: string;
-  ollamaSystemPrompt?: string;
-  ollamaUseFullSystemPrompt?: boolean;
-  ambientXaiApiKey?: string;
-  grokBuildUseXaiApiKey?: boolean;
 }
 
-let isClaudeOllamaVisible = () => false;
 let getProviderRuntimeSnapshot = (): ProviderRuntimeSnapshot => ({});
 const hostedProviderProxies = new Map<ProviderName, AgentProvider>();
 
 export function configureProviderRuntime(config: ProviderRuntimeConfig): void {
-  claudeProvider.setAdditionalModelsGetter(
-    config.getClaudeAdditionalModels ?? (() => []),
-  );
   codexProvider.setCodexPath(config.codexCliPath);
-  codexOSSProvider.setCodexPath(config.codexCliPath);
-  isClaudeOllamaVisible = config.isClaudeOllamaVisible ?? (() => false);
   getProviderRuntimeSnapshot =
     config.getProviderRuntimeSnapshot ?? (() => ({}));
-  const getCodexReasoningSummary = (): CodexReasoningSummary =>
-    getProviderRuntimeSnapshot().codexReasoningSummary ??
-    DEFAULT_CODEX_REASONING_SUMMARY;
-  const getSubagentMaxDepth = (): SubagentMaxDepth => {
-    const configured = getProviderRuntimeSnapshot().subagentMaxDepth;
-    return configured === undefined ? DEFAULT_SUBAGENT_MAX_DEPTH : configured;
-  };
-  claudeProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
-  claudeGatewayProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
-  claudeOllamaProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
-  grokACPProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
-  codexProvider.setReasoningSummaryGetter(getCodexReasoningSummary);
-  codexProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
+  codexProvider.setReasoningSummaryGetter(
+    () =>
+      getProviderRuntimeSnapshot().codexReasoningSummary ??
+      DEFAULT_CODEX_REASONING_SUMMARY,
+  );
+  codexProvider.setSubagentMaxDepthGetter(
+    () =>
+      getProviderRuntimeSnapshot().subagentMaxDepth ??
+      DEFAULT_SUBAGENT_MAX_DEPTH,
+  );
 }
 
 function hostedProvider(rawProvider: AgentProvider): AgentProvider {
@@ -162,29 +59,6 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
   if (existing) return existing;
   const proxy = new Proxy(rawProvider, {
     get(target, property) {
-      if (
-        property === "getAvailableModels" &&
-        target.name === "claude-gateway"
-      ) {
-        return async () => {
-          const models = await target.getAvailableModels();
-          const processGroupId =
-            ClaudeGatewayProvider.getOwnedGatewayProcessGroupId();
-          if (processGroupId) {
-            await retainProviderRuntimeProcessGroup(processGroupId);
-            if (
-              !ClaudeGatewayProvider.relinquishOwnedGatewayProcessGroup(
-                processGroupId,
-              )
-            ) {
-              throw new Error(
-                "Claude Gateway ownership changed during host transfer",
-              );
-            }
-          }
-          return models;
-        };
-      }
       if (property === "startSession") {
         return (options: Parameters<AgentProvider["startSession"]>[0]) =>
           startHostedProviderSession(
@@ -204,64 +78,17 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
 export { isProviderRuntimeHostAvailable };
 
 function runtimeProvider(rawProvider: AgentProvider): AgentProvider {
-  if (!isProviderRuntimeHostAvailable()) return rawProvider;
-  return hostedProvider(rawProvider);
+  return isProviderRuntimeHostAvailable()
+    ? hostedProvider(rawProvider)
+    : rawProvider;
 }
 
-/**
- * Get all available provider instances.
- * Useful for provider detection UI.
- */
 export function getAllProviders(): AgentProvider[] {
-  return [
-    claudeProvider,
-    ...(ClaudeGatewayProvider.isConfigured() ? [claudeGatewayProvider] : []),
-    ...(isClaudeOllamaVisible() ? [claudeOllamaProvider] : []),
-    codexProvider,
-    codexOSSProvider,
-    geminiProvider,
-    geminiACPProvider,
-    grokACPProvider, // Phase 1: additive only (see grok-acp.ts header + topics/grok.md)
-    opencodeProvider,
-    piProvider,
-  ].map(runtimeProvider);
+  return [runtimeProvider(codexProvider)];
 }
 
-/**
- * Get a provider by name.
- *
- * Note: "gemini" maps to geminiACPProvider (ACP mode) since it's the better
- * implementation with proper permission handling. The non-ACP stream-json
- * provider is deprecated and will be removed.
- *
- * "grok" added (additive, isolated). When ENABLED_PROVIDERS does not include "grok",
- * getProvider("grok") is never reached from normal flows.
- */
 export function getRawProvider(name: ProviderName): AgentProvider | null {
-  switch (name) {
-    case "claude":
-      return claudeProvider;
-    case "claude-gateway":
-      return claudeGatewayProvider;
-    case "claude-ollama":
-      return claudeOllamaProvider;
-    case "codex":
-      return codexProvider;
-    case "codex-oss":
-      return codexOSSProvider;
-    case "gemini":
-    case "gemini-acp":
-      // Both map to ACP provider - "gemini" is legacy name for backward compatibility
-      return geminiACPProvider;
-    case "grok":
-      return grokACPProvider; // Phase 1 Grok Build (ACP)
-    case "opencode":
-      return opencodeProvider;
-    case "pi":
-      return piProvider;
-    default:
-      return null;
-  }
+  return name === "codex" ? codexProvider : null;
 }
 
 export function getProvider(name: ProviderName): AgentProvider | null {

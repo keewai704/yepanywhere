@@ -1,0 +1,62 @@
+name: Portable dependency workspace
+
+on:
+  push:
+    branches:
+      - codex-fast-ultra-pi-ui
+    paths:
+      - .github/workflows/dependency-snapshot-fast.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - run: pnpm install --force
+      - name: Archive workspace dependencies
+        run: |
+          tar -I 'zstd -T0 -3' -cf dependency-workspace.tar.zst \
+            node_modules \
+            packages/*/node_modules
+          split -b 250M -d -a 2 dependency-workspace.tar.zst dependency-workspace.part-
+          test -f dependency-workspace.part-04
+          test ! -e dependency-workspace.part-05
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-00-${{ github.sha }}
+          path: dependency-workspace.part-00
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-01-${{ github.sha }}
+          path: dependency-workspace.part-01
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-02-${{ github.sha }}
+          path: dependency-workspace.part-02
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-03-${{ github.sha }}
+          path: dependency-workspace.part-03
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-04-${{ github.sha }}
+          path: dependency-workspace.part-04
+          compression-level: 0
+          retention-days: 1

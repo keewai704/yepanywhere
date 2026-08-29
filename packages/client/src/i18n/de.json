@@ -1250,5 +1250,18 @@
   "remoteSetupErrorUpdateFailed": "Aktualisierung fehlgeschlagen",
   "publicShareRetrying": "Verbindung zur Freigabe wird wiederhergestellt...",
   "sourceWorkingTreeFilesIncomplete": "Das Inventar ist unvollständig; insgesamt {count} Dateien.",
-  "sourceWorkingTreeShowAll": "Alle {count} Dateien anzeigen"
+  "sourceWorkingTreeShowAll": "Alle {count} Dateien anzeigen",
+  "effortLevelUltraLabel": "Ultra",
+  "effortLevelUltraDescription": "Maximales Denken mit automatischer Aufgabendelegation",
+  "codexModesLabel": "Codex-Antwortmodi",
+  "codexFastLabel": "Fast",
+  "codexFastHint": "1,5-fache Antwortgeschwindigkeit",
+  "codexFastDescription": "Nutzt die Codex-Fast-Stufe für schnellere Antworten.",
+  "codexFastUnavailable": "Fast ist für dieses Modell nicht verfügbar.",
+  "codexUltraLabel": "Ultra",
+  "codexUltraHint": "Maximales Denken",
+  "codexUltraHintLevel": "Maximales Denken · {level}",
+  "codexUltraDescription": "Nutzt die höchste von diesem Modell unterstützte Denkstufe.",
+  "codexUltraUnavailable": "Ultra-Denken ist für dieses Modell nicht verfügbar.",
+  "sessionFastChangeFailed": "Fast-Modus konnte nicht geändert werden: {message}"
 }
