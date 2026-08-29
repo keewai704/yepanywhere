@@ -27,9 +27,36 @@ jobs:
           tar -I 'zstd -T0 -3' -cf dependency-workspace.tar.zst \
             node_modules \
             packages/*/node_modules
+          split -b 250M -d -a 2 dependency-workspace.tar.zst dependency-workspace.part-
+          test -f dependency-workspace.part-04
+          test ! -e dependency-workspace.part-05
       - uses: actions/upload-artifact@v4
         with:
-          name: dependency-workspace-${{ github.sha }}
-          path: dependency-workspace.tar.zst
+          name: dependency-workspace-part-00-${{ github.sha }}
+          path: dependency-workspace.part-00
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-01-${{ github.sha }}
+          path: dependency-workspace.part-01
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-02-${{ github.sha }}
+          path: dependency-workspace.part-02
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-03-${{ github.sha }}
+          path: dependency-workspace.part-03
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-workspace-part-04-${{ github.sha }}
+          path: dependency-workspace.part-04
           compression-level: 0
           retention-days: 1
